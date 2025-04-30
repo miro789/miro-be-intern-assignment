@@ -34,6 +34,29 @@ export class PostController {
         }
     }
 
+    async getPost(req: Request, res: Response) {
+        try {
+            const postId = Number(req.params.id);
+            const post = await this.postService.getPost(postId);
+            
+            return res.json(createApiResponse(
+                [post],
+                1,
+                0,
+                1
+            ));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+            return res.status(404).json(createApiResponse(
+                [],
+                1,
+                0,
+                0,
+                message
+            ));
+        }
+    }
+
     async unlikePost(req: Request, res: Response) {
         try {
             const postId = Number(req.params.id);
@@ -76,6 +99,19 @@ export class PostController {
             const { authorId, content, hashtags } = req.body;
             const post = await this.postService.createPost(authorId, content, hashtags);
             res.status(201).json(post);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+            res.status(400).json({ message });
+        }
+    }
+
+    async likePost(req: Request, res: Response) {
+        try {
+            const postId = Number(req.params.id);
+            const userId = Number(req.body.userId);
+            
+            const like = await this.postService.likePost(userId, postId);
+            res.status(201).json(like);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'An unexpected error occurred';
             res.status(400).json({ message });

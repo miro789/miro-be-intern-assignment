@@ -3,21 +3,38 @@ import { FeedService } from '../services/feed.service';
 import { createApiResponse } from '../types/response';
 
 export class FeedController {
-    private feedService = new FeedService();
+    private feedService: FeedService;
+
+    constructor() {
+        this.feedService = new FeedService();
+    }
 
     async getUserFeed(req: Request, res: Response) {
         try {
-            const userId = Number(req.params.userId);
-            const limit = Number(req.query.limit) || 10;
-            const offset = Number(req.query.offset) || 0;
+            const userId = parseInt(req.query.userId as string);
+            
+            if (isNaN(userId)) {
+                return res.status(400).json(createApiResponse(
+                    [],
+                    10,
+                    0,
+                    0,
+                    'Invalid userId parameter',
+                    400
+                ));
+            }
 
-            const { items, total } = await this.feedService.getUserFeed(userId, { limit, offset });
+            const limit = parseInt(req.query.limit as string) || 10;
+            const offset = parseInt(req.query.offset as string) || 0;
+
+            const { items, total, message } = await this.feedService.getUserFeed(userId, { limit, offset });
             
             return res.json(createApiResponse(
                 items,
                 limit,
                 offset,
-                total
+                total,
+                message
             ));
         } catch (error) {
             const message = error instanceof Error ? error.message : 'An unexpected error occurred';
@@ -26,7 +43,8 @@ export class FeedController {
                 10,
                 0,
                 0,
-                message
+                message,
+                500
             ));
         }
     }

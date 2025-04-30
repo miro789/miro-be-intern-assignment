@@ -32,13 +32,39 @@ export const createUserSchema = Joi.object({
 });
 
 export const updateUserSchema = Joi.object({
-  firstName: Joi.string().min(2).max(255),
-  lastName: Joi.string().min(2).max(255),
-  email: Joi.string().email().max(255),
+  id: Joi.number().required().positive().messages({
+    'number.base': 'ID must be a number',
+    'number.positive': 'ID must be a positive number'
+  }),
+  firstName: Joi.string()
+    .min(2)
+    .max(255)
+    .pattern(/^[a-zA-Z0-9]+$/)
+    .messages({
+      'string.pattern.base': 'firstName must contain only letters and numbers, no spaces',
+      'string.min': 'firstName must be at least 2 characters long',
+      'string.max': 'firstName cannot exceed 255 characters'
+    }),
+  lastName: Joi.string()
+    .min(2)
+    .max(255)
+    .pattern(/^[a-zA-Z0-9]+$/)
+    .messages({
+      'string.pattern.base': 'lastName must contain only letters and numbers, no spaces',
+      'string.min': 'lastName must be at least 2 characters long',
+      'string.max': 'lastName cannot exceed 255 characters'
+    }),
+  email: Joi.string()
+    .email()
+    .max(255)
+    .messages({
+      'string.email': 'Please provide a valid email address',
+      'string.max': 'Email cannot exceed 255 characters'
+    })
 })
   .min(1)
   .messages({
-    'object.min': 'At least one field must be provided for update',
+    'object.min': 'At least one field must be provided for update'
   });
 
 export const followUserSchema = Joi.object({

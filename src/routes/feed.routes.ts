@@ -6,8 +6,5 @@ import { FeedController } from '../controllers/feed.controller';
 export const feedRouter = Router();
 const feedController = new FeedController();
 
-// Get user's personalized feed (matches README: /api/feed)
-feedRouter.get('/', 
-    validate(feedQuerySchema), 
-    feedController.getUserFeed.bind(feedController)
-);
+// Get user's personalized feed
+feedRouter.get('/', validate(feedQuerySchema), feedController.getUserFeed.bind(feedController));

@@ -1,15 +1,23 @@
 import { AppDataSource } from '../data-source';
-import { Post } from '../entities/Post';
+import { Post, PostStatus } from '../entities/Post';
 import { User } from '../entities/User';
 import { PostLike } from '../entities/PostLike';
 import { Hashtag } from '../entities/Hashtag';
 import { PaginatedResponse, PaginationParams } from '../types/pagination';
+import { Repository } from 'typeorm';
 
 export class PostService {
-    private postRepository = AppDataSource.getRepository(Post);
-    private userRepository = AppDataSource.getRepository(User);
-    private postLikeRepository = AppDataSource.getRepository(PostLike);
-    private hashtagRepository = AppDataSource.getRepository(Hashtag);
+    private postRepository: Repository<Post>;
+    private userRepository: Repository<User>;
+    private postLikeRepository: Repository<PostLike>;
+    private hashtagRepository: Repository<Hashtag>;
+
+    constructor() {
+        this.postRepository = AppDataSource.getRepository(Post);
+        this.userRepository = AppDataSource.getRepository(User);
+        this.postLikeRepository = AppDataSource.getRepository(PostLike);
+        this.hashtagRepository = AppDataSource.getRepository(Hashtag);
+    }
 
     async createPost(authorId: number, content: string, hashtags: string[] = []): Promise<Post> {
         const author = await this.userRepository.findOneBy({ id: authorId });
@@ -32,7 +40,8 @@ export class PostService {
         const post = this.postRepository.create({
             content,
             author,
-            hashtags: hashtagEntities
+            hashtags: hashtagEntities,
+            status: PostStatus.PUBLISHED
         });
 
         return this.postRepository.save(post);
@@ -40,18 +49,24 @@ export class PostService {
 
     async getPost(postId: number): Promise<Post> {
         const post = await this.postRepository.findOne({
-            where: { id: postId },
-            relations: ['author', 'hashtags', 'likes']
+            where: { 
+                id: postId,
+                status: PostStatus.PUBLISHED 
+            },
+            relations: ['author', 'hashtags', 'likes', 'likes.user']
         });
+
         if (!post) {
             throw new Error('Post not found');
         }
+
         return post;
     }
 
     async getPosts({ limit = 10, offset = 0 }: PaginationParams): Promise<PaginatedResponse<Post>> {
         const [posts, total] = await this.postRepository.findAndCount({
-            relations: ['author', 'hashtags', 'likes'],
+            where: { status: PostStatus.PUBLISHED },
+            relations: ['author', 'hashtags', 'likes', 'likes.user'],
             order: { createdAt: 'DESC' },
             take: limit,
             skip: offset
@@ -59,21 +74,33 @@ export class PostService {
 
         return {
             items: posts,
-            total
+            total,
+            limit,
+            offset
         };
     }
 
     async updatePost(postId: number, content: string): Promise<Post> {
         const post = await this.getPost(postId);
+        
+        if (!post) {
+            throw new Error('Post not found');
+        }
+
         post.content = content;
         return this.postRepository.save(post);
     }
 
     async deletePost(postId: number): Promise<void> {
-        const result = await this.postRepository.delete(postId);
-        if (result.affected === 0) {
+        const post = await this.getPost(postId);
+        
+        if (!post) {
             throw new Error('Post not found');
         }
+
+        // Soft delete by updating status
+        post.status = PostStatus.DELETED;
+        await this.postRepository.save(post);
     }
 
     async likePost(userId: number, postId: number): Promise<PostLike> {
@@ -84,6 +111,10 @@ export class PostService {
 
         if (!user) {
             throw new Error('User not found');
+        }
+
+        if (!post) {
+            throw new Error('Post not found');
         }
 
         const existingLike = await this.postLikeRepository.findOneBy({
@@ -100,13 +131,59 @@ export class PostService {
     }
 
     async unlikePost(userId: number, postId: number): Promise<void> {
-        const result = await this.postLikeRepository.delete({
-            user: { id: userId },
-            post: { id: postId }
+        const existingLike = await this.postLikeRepository.findOne({
+            where: {
+                user: { id: userId },
+                post: { id: postId }
+            }
         });
 
-        if (result.affected === 0) {
+        if (!existingLike) {
             throw new Error('Like not found');
         }
+
+        await this.postLikeRepository.remove(existingLike);
+    }
+
+    async getPostsByAuthor(authorId: number, { limit = 10, offset = 0 }: PaginationParams): Promise<PaginatedResponse<Post>> {
+        const [posts, total] = await this.postRepository.findAndCount({
+            where: { 
+                author: { id: authorId },
+                status: PostStatus.PUBLISHED 
+            },
+            relations: ['author', 'hashtags', 'likes', 'likes.user'],
+            order: { createdAt: 'DESC' },
+            take: limit,
+            skip: offset
+        });
+
+        return {
+            items: posts,
+            total,
+            limit,
+            offset
+        };
+    }
+
+    async getLikedPosts(userId: number, { limit = 10, offset = 0 }: PaginationParams): Promise<PaginatedResponse<Post>> {
+        const [posts, total] = await this.postRepository
+            .createQueryBuilder('post')
+            .innerJoin('post.likes', 'likes', 'likes.userId = :userId', { userId })
+            .leftJoinAndSelect('post.author', 'author')
+            .leftJoinAndSelect('post.hashtags', 'hashtags')
+            .leftJoinAndSelect('post.likes', 'allLikes')
+            .leftJoinAndSelect('allLikes.user', 'likeUser')
+            .where('post.status = :status', { status: PostStatus.PUBLISHED })
+            .orderBy('post.createdAt', 'DESC')
+            .take(limit)
+            .skip(offset)
+            .getManyAndCount();
+
+        return {
+            items: posts,
+            total,
+            limit,
+            offset
+        };
     }
 }

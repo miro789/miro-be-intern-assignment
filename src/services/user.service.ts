@@ -1,9 +1,8 @@
 import { Repository } from 'typeorm';
-import { AppDataSource } from '../data-source';
 import { User } from '../entities/User';
 import { UserFollow } from '../entities/UserFollow';
+import { AppDataSource } from '../data-source';
 import { PaginationParams } from '../types/pagination';
-import { PaginatedResponse } from '../types/response';
 import { ActivityType } from '../types/activity';
 
 export class UserService {
@@ -39,6 +38,10 @@ export class UserService {
     }
 
     async deleteUser(id: number): Promise<void> {
+        const user = await this.userRepository.findOneBy({ id });
+        if (!user) {
+            throw new Error('User not found');
+        }
         await this.userRepository.delete(id);
     }
 

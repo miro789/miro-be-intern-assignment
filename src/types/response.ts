@@ -1,12 +1,12 @@
-export interface PaginatedResponse<T> {
+export interface ApiResponse<T> {
     data: T[];
     pagination: {
         limit: number;
         offset: number;
         total: number;
     };
-    error?: string;
-    statusCode?: number;
+    message?: string;
+    statusCode: number;
 }
 
 export function createApiResponse<T>(
@@ -14,9 +14,9 @@ export function createApiResponse<T>(
     limit: number,
     offset: number,
     total: number,
-    error?: string,
+    message?: string,
     statusCode: number = 200
-): PaginatedResponse<T> {
+): ApiResponse<T> {
     return {
         data: items,
         pagination: {
@@ -24,7 +24,15 @@ export function createApiResponse<T>(
             offset,
             total
         },
-        error,
+        message,
         statusCode
     };
+}
+
+export interface PaginatedResponse<T> {
+    items: T[];
+    total: number;
+    limit: number;
+    offset: number;
+    message?: string;
 }

@@ -1,20 +1,15 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/user.controller';
 import { validate } from '../middleware/validation.middleware';
-import { createUserSchema, userQuerySchema } from '../validations/user.validation';
+import { followUserSchema } from '../validations/user.validation';
 
-const router = Router();
+const userRouter = Router();
 const userController = new UserController();
 
-// Note: We're using the methods directly, not as function factories
-router.post('/', 
-    validate(createUserSchema), 
-    (req, res) => userController.createUser(req, res)
-);
+// User routes
+userRouter.get('/:id', userController.getUserById.bind(userController));
+userRouter.get('/:id/followers', userController.getFollowers.bind(userController));
+userRouter.post('/:id/follow', validate(followUserSchema), userController.followUser.bind(userController));
+userRouter.delete('/:id/follow', validate(followUserSchema), userController.unfollowUser.bind(userController));
 
-router.get('/', 
-    validate(userQuerySchema), 
-    (req, res) => userController.getAllUsers(req, res)
-);
-
-export { router as userRouter };
+export { userRouter };

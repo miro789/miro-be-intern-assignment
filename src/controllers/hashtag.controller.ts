@@ -8,6 +8,16 @@ export class HashtagController {
     async getPostsByHashtag(req: Request, res: Response) {
         try {
             const tag = req.params.tag;
+            if (!tag) {
+                return res.status(400).json(createApiResponse(
+                    [],
+                    10,
+                    0,
+                    0,
+                    'Hashtag parameter is required'
+                ));
+            }
+
             const limit = Number(req.query.limit) || 10;
             const offset = Number(req.query.offset) || 0;
 

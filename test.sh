@@ -6,6 +6,10 @@ POSTS_URL="http://localhost:3000/api/posts"
 FEED_URL="http://localhost:3000/api/feed"
 HASHTAG_URL="http://localhost:3000/api/posts/hashtag"
 
+# Get script directory and set jq path
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+JQ="$SCRIPT_DIR/bin/jq.exe"
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -28,9 +32,9 @@ make_request() {
     fi
     
     if [ "$method" = "GET" ]; then
-        curl -s -X $method "$endpoint" | jq .
+        curl -s -X $method "$endpoint" | "$JQ" "."
     else
-        curl -s -X $method "$endpoint" -H "Content-Type: application/json" -d "$data" | jq .
+        curl -s -X $method "$endpoint" -H "Content-Type: application/json" -d "$data" | "$JQ" "."
     fi
     echo ""
 }

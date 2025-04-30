@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, Unique } from "typeorm";
+import { Entity, ManyToOne, Unique, JoinColumn } from "typeorm";
 import { BaseEntity } from "./BaseEntity";
 import { User } from "./User";
 
@@ -7,8 +7,10 @@ import { User } from "./User";
 @Unique(["follower", "following"])
 export class UserFollow extends BaseEntity {
     @ManyToOne(() => User, user => user.following)
+    @JoinColumn({ name: "followerId" })
     follower: User;
 
     @ManyToOne(() => User, user => user.followers)
+    @JoinColumn({ name: "followingId" })
     following: User;
 }

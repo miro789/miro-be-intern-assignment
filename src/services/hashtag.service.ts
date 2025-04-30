@@ -27,7 +27,9 @@ export class HashtagService {
 
         return {
             items: posts,
-            total
+            total,
+            limit,
+            offset
         };
     }
 }

@@ -1,5 +1,26 @@
 # System Design Documentation
 
+## Architecture Overview
+
+### Tech Stack
+- Backend: Node.js with Express
+- Language: TypeScript
+- Database: SQLite with TypeORM
+- Validation: Joi
+- Testing: Shell Script-based integration tests
+
+### Project Structure
+```
+src/
+├── entities/        # TypeORM entities
+├── routes/         # Express routes
+├── services/       # Business logic
+├── middleware/     # Express middleware
+├── validations/    # Joi validation schemas
+├── migrations/     # TypeORM migrations
+└── types/         # TypeScript type definitions
+```
+
 ## Database Schema Design
 
 ### Core Entities
@@ -10,12 +31,12 @@
      - `firstName` (string)
      - `lastName` (string)
      - `email` (string, unique)
-     - `avatarUrl` (string, nullable)
      - `createdAt` (datetime)
      - `updatedAt` (datetime)
    - Relationships:
      - One-to-Many with Posts (as author)
      - Many-to-Many with Users (self-referential for follows)
+     - One-to-Many with PostLikes
 
 2. **Post**
    - Primary key: `id`
@@ -60,119 +81,229 @@
    - Constraints:
      - Unique composite constraint on (followerId, followingId)
 
-## Indexing Strategy
+## API Design
 
-### Performance Indexes
+### RESTful Endpoints
+
+1. **User Management**
+   ```
+   POST   /api/users              # Create user
+   GET    /api/users              # List users
+   GET    /api/users/:id          # Get user details
+   PUT    /api/users/:id          # Update user
+   DELETE /api/users/:id          # Delete user
+   POST   /api/users/:id/follow   # Follow user
+   DELETE /api/users/:id/follow   # Unfollow user
+   GET    /api/users/:id/followers # Get user followers
+   GET    /api/users/:id/activity # Get user activity
+   ```
+
+2. **Post Management**
+   ```
+   POST   /api/posts              # Create post
+   GET    /api/posts              # List posts
+   GET    /api/posts/:id          # Get post details
+   PUT    /api/posts/:id          # Update post
+   DELETE /api/posts/:id          # Delete post
+   POST   /api/posts/:id/like     # Like post
+   DELETE /api/posts/:id/like     # Unlike post
+   GET    /api/posts/hashtag/:tag # Get posts by hashtag
+   ```
+
+3. **Feed Management**
+   ```
+   GET    /api/feed               # Get user feed
+   ```
+
+### Request/Response Format
+
+1. **Pagination**
+   ```typescript
+   interface PaginationParams {
+       limit: number;   // Default: 10, Max: 100
+       offset: number;  // Default: 0
+   }
+   ```
+
+2. **Activity Filtering**
+   ```typescript
+   enum ActivityType {
+       POST = 'post',
+       LIKE = 'like',
+       FOLLOW = 'follow'
+   }
+   ```
+
+## Implementation Details
+
+### Data Access Layer
+- Using TypeORM Repository pattern
+- Eager loading relationships to prevent N+1 queries
+- Transaction support for complex operations
+
+### Validation Layer
+- Joi schemas for request validation
+- Custom validation middleware
+- Strong typing with TypeScript
+
+### Error Handling
+- Centralized error handling middleware
+- Consistent error response format
+- HTTP status codes mapping
+
+## Performance Optimizations
+
+### Database Indexes
 
 1. **Posts Table**
    ```sql
    CREATE INDEX "IDX_posts_created_at" ON "posts" ("createdAt");
    CREATE INDEX "IDX_posts_author_status" ON "posts" ("authorId", "status");
    ```
-   - Optimizes feed queries by creation date
-   - Improves filtering posts by author and status
-   - Enhances performance for user activity feeds
 
 2. **Hashtags Table**
    ```sql
    CREATE INDEX "IDX_hashtags_name_search" ON "hashtags" ("name");
    ```
-   - Enables efficient case-insensitive hashtag searches
-   - Improves performance for hashtag-based post filtering
 
 3. **PostLikes Table**
    ```sql
    CREATE UNIQUE INDEX "IDX_post_likes_user_post" ON "post_likes" ("userId", "postId");
    ```
-   - Prevents duplicate likes
-   - Optimizes like count queries
-   - Improves performance for user interaction checks
 
-### Reasoning Behind Index Choices
+### Query Optimization
+- Pagination on all list endpoints
+- Efficient joins using TypeORM relations
+- Composite indexes for common query patterns
 
-1. **Feed Performance**
-   - The `IDX_posts_created_at` index optimizes the main feed query that sorts posts by creation date
-   - Combined with `IDX_posts_author_status`, it efficiently filters active posts from followed users
+## Security Considerations
 
-2. **Hashtag Search Efficiency**
-   - `IDX_hashtags_name_search` enables quick hashtag lookups
-   - Essential for the `/api/posts/hashtag/:tag` endpoint
-   - Supports case-insensitive matching without full table scans
-
-3. **User Interaction Optimization**
-   - The unique composite index on PostLikes prevents duplicates at the database level
-   - Improves performance for checking if a user has liked a post
-
-## Scalability Considerations
-
-### Current Implementation
-
-1. **Pagination**
-   - All list endpoints support `limit` and `offset` parameters
-   - Prevents memory overload with large datasets
-   - Example: `/api/feed?limit=10&offset=20`
-
-2. **Efficient Queries**
-   - Uses TypeORM query builder for optimized SQL generation
-   - Implements eager loading to prevent N+1 query problems
-   - Utilizes composite indexes for common query patterns
-
-### Future Scalability Solutions
-
-1. **Caching Strategy**
-   - Implement Redis caching for:
-     - User feeds
-     - Trending hashtags
-     - Post like counts
-   - Cache invalidation on relevant updates
-
-2. **Database Scaling**
-   - Vertical scaling initially (more powerful hardware)
-   - Horizontal scaling possibilities:
-     - Read replicas for feed queries
-     - Sharding based on user ID or post date
-     - Separate databases for different features
-
-3. **Performance Monitoring**
-   - Add query performance monitoring
-   - Implement slow query logging
-   - Regular index usage analysis
-
-4. **Content Delivery**
-   - CDN integration for media content
-   - Geographic distribution for global scale
-   - Content compression strategies
-
-## API Design Considerations
-
-1. **Rate Limiting**
-   - Implement per-user and per-IP rate limits
-   - Graduated rate limits based on user activity
-
-2. **Security**
-   - Input validation using Joi
+1. **Input Validation**
+   - Strict request validation using Joi
    - SQL injection prevention via TypeORM
-   - Request validation middleware
+   - XSS protection through content sanitization
 
-3. **Error Handling**
-   - Consistent error response format
-   - Detailed logging for debugging
-   - Graceful failure handling
+2. **Rate Limiting**
+   - Per-user and per-IP rate limits
+   - Graduated rate limits based on endpoint
+
+3. **Data Protection**
+   - Input sanitization
+   - Parameter validation
+   - Error message security
+
+## Testing Strategy
+
+1. **Integration Tests**
+   - Shell script-based test suite
+   - Coverage for all CRUD operations
+   - Edge case testing
+
+2. **Test Categories**
+   - User operations
+   - Post management
+   - Feed functionality
+   - Hashtag operations
+   - Follow/unfollow mechanics
 
 ## Future Improvements
 
-1. **Search Optimization**
-   - Elasticsearch integration for full-text search
-   - Improved hashtag search with fuzzy matching
-   - Advanced post content search
+1. **Authentication & Security**
+   - Implement JWT-based authentication using numeric user IDs
+   - Add route protection for user-specific operations
+   - Implement rate limiting for social actions
 
-2. **Performance Enhancements**
-   - Implement GraphQL for flexible data fetching
-   - Background job processing for heavy operations
-   - WebSocket support for real-time updates
+2. **Performance Optimizations**
+   - Add Redis caching for frequently accessed data
+   - Optimize database queries and indexes
+   - Implement connection pooling
 
-3. **Monitoring and Analytics**
-   - User engagement metrics
-   - System performance metrics
-   - Error rate monitoring
+3. **API Enhancements**
+
+   - Standardize response format
+   - Improve error handling
+   - Add comprehensive input validation
+
+4. **Code Quality & Best Practices**
+   - Add route parameter validation
+     ```typescript
+     // Example validation middleware
+     const validateUUID = (req, res, next) => {
+         const { id } = req.params;
+         if (!isValidUUID(id)) {
+             return res.status(400).json({
+                 status: 400,
+                 message: 'Invalid UUID format'
+             });
+         }
+         next();
+     };
+     ```
+   - Implement comprehensive error handling:
+     ```typescript
+     app.use((err, req, res, next) => {
+         logger.error(err);
+         res.status(err.status || 500).json({
+             status: err.status || 500,
+             message: err.message,
+             timestamp: new Date().toISOString()
+         });
+     });
+     ```
+   - Add OpenAPI/Swagger documentation
+     ```yaml
+     /api/users/{id}:
+       get:
+         responses:
+           200:
+             description: Success
+           404:
+             description: User not found
+           401:
+             description: Unauthorized
+     ```
+
+5. **Performance**
+   - Redis caching for frequently accessed data
+   - Query optimization for large datasets
+   - Connection pooling
+   - Implement response compression
+
+6. **Scalability**
+   - Horizontal scaling preparation
+   - Load balancing consideration
+   - Database sharding strategy
+   - Message queue implementation for async operations
+
+7. **Monitoring & Logging**
+   - Add structured logging
+   - Implement performance monitoring
+   - Add health check endpoints
+   - Set up error tracking
+
+8. **Features**
+   - Real-time notifications using WebSocket
+   - Advanced search capabilities
+   - Media content support
+   - User activity analytics
+   - Content moderation system
+
+9. **Testing Improvements**
+   - Add unit tests for services
+   - Implement E2E testing
+   - Add performance testing
+   - Implement CI/CD pipeline
+   ```typescript
+   describe('Authentication', () => {
+       it('should validate JWT token', async () => {
+           // Test implementation
+       });
+   });
+   ```
+
+10. **Documentation**
+    - Add detailed API documentation
+    - Include response codes for each endpoint
+    - Document rate limiting rules
+    - Add setup guide for local development
 

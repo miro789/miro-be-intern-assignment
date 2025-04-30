@@ -22,7 +22,7 @@ postRouter.get('/',
 
 // Get post by id
 postRouter.get('/:id', 
-    postController.getPosts.bind(postController)
+    postController.getPost.bind(postController)
 );
 
 // Get posts by hashtag (matches README: /api/posts/hashtag/:tag)
@@ -51,7 +51,7 @@ postRouter.delete('/:id',
 // Like post
 postRouter.post('/:id/like', 
     validate(likePostSchema), 
-    postController.unlikePost.bind(postController)
+    postController.likePost.bind(postController)
 );
 
 // Unlike post
