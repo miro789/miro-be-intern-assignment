@@ -1,22 +1,15 @@
 import { Router } from 'express';
-import { validate } from '../middleware/validation.middleware';
-import { createUserSchema, updateUserSchema } from '../validations/user.validation';
 import { UserController } from '../controllers/user.controller';
+import { validate } from '../middleware/validation.middleware';
+import { followUserSchema } from '../validations/user.validation';
 
-export const userRouter = Router();
+const userRouter = Router();
 const userController = new UserController();
 
-// Get all users
-userRouter.get('/', userController.getAllUsers.bind(userController));
-
-// Get user by id
+// User routes
 userRouter.get('/:id', userController.getUserById.bind(userController));
+userRouter.get('/:id/followers', userController.getFollowers.bind(userController));
+userRouter.post('/:id/follow', validate(followUserSchema), userController.followUser.bind(userController));
+userRouter.delete('/:id/follow', validate(followUserSchema), userController.unfollowUser.bind(userController));
 
-// Create new user
-userRouter.post('/', validate(createUserSchema), userController.createUser.bind(userController));
-
-// Update user
-userRouter.put('/:id', validate(updateUserSchema), userController.updateUser.bind(userController));
-
-// Delete user
-userRouter.delete('/:id', userController.deleteUser.bind(userController));
+export { userRouter };
